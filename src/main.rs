@@ -22,19 +22,18 @@ impl Student {
 }
 
 async fn insert_student(pool: &PgPool, student_name: &str, class: i32) -> Result<i32> {
-    let entry: (i32,) = sqlx::query_as(
+    let entry = sqlx::query!(
         "INSERT INTO students (student_name, class) VALUES ($1, $2) RETURNING student_id",
+        student_name,
+        class,
     )
-    .bind(student_name)
-    .bind(class)
     .fetch_one(pool)
     .await?;
-    Ok(entry.0)
+    Ok(entry.student_id)
 }
 
 async fn get_student(pool: &PgPool, id: i32) -> Result<Student> {
-    let student = sqlx::query_as("SELECT * FROM students WHERE student_id = $1")
-        .bind(id)
+    let student = sqlx::query_as!(Student, "SELECT * FROM students WHERE student_id = $1", id)
         .fetch_one(pool)
         .await?;
     Ok(student)
