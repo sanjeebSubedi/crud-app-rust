@@ -11,21 +11,16 @@ struct Student {
     class: i32,
 }
 
-impl Student {
-    fn new(student_id: i32, name: String, class: i32) -> Self {
-        Student {
-            student_id,
-            student_name: name,
-            class,
-        }
-    }
+struct InsertStudent {
+    student_name: String,
+    class: i32,
 }
 
-async fn insert_student(pool: &PgPool, student_name: &str, class: i32) -> Result<i32> {
+async fn insert_student(pool: &PgPool, student: InsertStudent) -> Result<i32> {
     let entry = sqlx::query!(
         "INSERT INTO students (student_name, class) VALUES ($1, $2) RETURNING student_id",
-        student_name,
-        class,
+        student.student_name,
+        student.class,
     )
     .fetch_one(pool)
     .await?;
@@ -39,6 +34,25 @@ async fn get_student(pool: &PgPool, id: i32) -> Result<Student> {
     Ok(student)
 }
 
+async fn delete_student(pool: &PgPool, id: i32) -> Result<()> {
+    sqlx::query!("DELETE FROM students where student_id = $1", id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+async fn update_student(pool: &PgPool, id: i32, student_name: String, class: i32) -> Result<()> {
+    sqlx::query!(
+        "UPDATE students set student_name=$1, class=$2 where student_id=$3",
+        student_name,
+        class,
+        id
+    )
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenv().ok();
@@ -49,11 +63,21 @@ async fn main() -> Result<()> {
         .await?;
     sqlx::query!("CREATE TABLE IF NOT EXISTS students (student_id serial PRIMARY KEY, student_name VARCHAR (50) NOT NULL, class INT NOT NULL)")
         .execute(&pool).await?;
-    if let Ok(st_id) = insert_student(&pool, "Jackson", 1).await {
+    let new_student = InsertStudent {
+        student_name: format!("Johnny"),
+        class: 11,
+    };
+    if let Ok(st_id) = insert_student(&pool, new_student).await {
         println!("Insertion successful! Id: {}", st_id);
     }
     if let Ok(student_details) = get_student(&pool, 3).await {
         println!("{}", serde_json::to_string(&student_details)?);
+    }
+    if let Ok(_) = delete_student(&pool, 5).await {
+        println!("Deletion successful!");
+    }
+    if let Ok(_) = update_student(&pool, 10, format!("Harry"), 3).await {
+        println!("Update successful!");
     }
     Ok(())
 }
